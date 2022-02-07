@@ -35,7 +35,7 @@ def isConditionalHyps (eq : Expr) : List Expr → MetaM Bool
       return true
     isConditionalHyps eq hs
 
-open private preprocess from Lean.Meta.Tactic.Simp.SimpLemmas in
+open private preprocess from Lean.Meta.Tactic.Simp.SimpTheorems in
 def withSimpLemmaInfos (ty : Expr) (k : SimpLemmaInfo → MetaM α) : MetaM (Array α) := withReducible do
   (← preprocess (← mkSorry ty true) ty (inv := false) (isGlobal := true))
       |>.toArray.mapM fun (_, ty') => do
@@ -62,7 +62,7 @@ def checkAllSimpLemmaInfos (ty : Expr) (k : SimpLemmaInfo → MetaM (Option Mess
     return MessageData.joinSep errors.toList Format.line
 
 def isSimpLemma (declName : Name) : MetaM Bool := do
-  pure $ (← getSimpLemmas).lemmaNames.contains declName
+  pure $ (← getSimpTheorems).lemmaNames.contains declName
 
 open Lean.Meta.DiscrTree
 partial def trieElements : Trie α → StateT (Array α) Id Unit
@@ -82,7 +82,7 @@ open Std
 -- This function computes the map ``{`decl._auxLemma.1 ↦ `decl}``
 def constToSimpDeclMap (ctx : Simp.Context) : HashMap Name Name := Id.run do
   let mut map : HashMap Name Name := {}
-  for sls in [ctx.simpLemmas.pre, ctx.simpLemmas.post] do
+  for sls in [ctx.simpTheorems.pre, ctx.simpTheorems.post] do
     for sl in ((elements sls).run #[]).2 do
       if let some declName := sl.name? then
         if let some auxDeclName := sl.proof.getAppFn.constName? then
@@ -98,9 +98,9 @@ def isEqnLemma? (n : Name) : Option Name :=
 def heuristicallyExtractSimpLemmasCore (ctx : Simp.Context) (constToSimpDecl : HashMap Name Name) (prf : Expr) : Array Name := Id.run do
   let mut cnsts : HashSet Name := {}
   for c in prf.getUsedConstants do
-    if ctx.simpLemmas.toUnfold.contains c then
+    if ctx.simpTheorems.toUnfold.contains c then
       cnsts := cnsts.insert c
-    else if ctx.congrLemmas.lemmas.contains c then
+    else if ctx.congrTheorems.lemmas.contains c then
       cnsts := cnsts.insert c
     else if let some c' := constToSimpDecl.find? c then
       cnsts := cnsts.insert c'
